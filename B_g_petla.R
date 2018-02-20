@@ -1,10 +1,14 @@
 options(show.error.locations=TRUE)
 # TO CHOOSE!!! -----------------------------------
 
-mating.system <- c(1,2,3)
-# "1" - male with the lowest number of mutations
+mating.system <- c(1,2,3,4,5,6)
+#mating.system <- c(6)
+# "1" - sperm with the lowest number of mutations
 # "2" - random mating
-# "3" - male with the lowest number of mutations in the same loci in comparison to female
+# "3" - sperm with the lowest number of mutations in the same loci in comparison to female
+# "4" - sperm with the highest fitness (without dominance)
+# "5" - sperm with the highest fitness (with dominance included)
+# "6" - sperm which will produce offspring with highest fitness
 selection.type <- c("constant","variable")
 #constant or variable
 
@@ -143,7 +147,7 @@ osobnik.mut<-function(n){
   return(populacja)  
 } #making mutations
 rozklad.s <- function(p = 0.05,loci.number){
-  #p - to ?rednie s
+  #p - to srednie s
   s <- seq(from=0.01, to=1, by=0.01)
   wynik.s <- (1/p)*exp(-s/p)
   probabilities <- wynik.s/sum(wynik.s)
@@ -170,8 +174,8 @@ L<-2 #average number of chiasms on each chromosome
 G<-6000 #overall size of haploid genome (in loci, 200 neutral loci included)
 Ul<-0.03 #lethal mutations rate (from Wang's article)
 U<-1 #deleterious mutations rate (from Wang's article)
-l.pokolen<-2
-l.replikatow <- 3
+l.pokolen<-50
+l.replikatow <- 21
 l.plemnikow<-100
 l.jaj<-10
 s<-0.05 #mean selection coefficient
@@ -184,8 +188,8 @@ writeLines("","log.txt")
 for(mat_sys in mating.system){
   for(s.type in selection.type){
     file.name1 <- paste("parametry",mat_sys,s.type,".txt",sep="")
-    parametry<-matrix(nrow=l.pokolen+1, ncol=11) #for each generation across replicates
-    colnames(parametry) <- c("mean_viability","max_viability","min_viability","SD_viability","heterozygosity","l.alleli","heterozygous_mutations","homozygous_mutations","fixed_loci","segregating_loci","replicates_number")
+    parametry<-matrix(nrow=l.pokolen+1, ncol=12) #for each generation across replicates
+    colnames(parametry) <- c("mean_viability","max_viability","min_viability","SD_viability","heterozygosity","l.alleli","heterozygous_mutations","homozygous_mutations","fixed_loci","segregating_loci","mutations_per_population","replicates_number")
     row.names(parametry) <- c(0:l.pokolen)
     
 # Ancestral population formation ------------------------------------------
@@ -205,7 +209,7 @@ for(mat_sys in mating.system){
     library(foreach) #introduction to foreach
     library(doParallel)
     #no_cores <- detectCores() - 1
-    cl <- makeCluster(3)
+    cl <- makeCluster(21)
     registerDoParallel(cl)
     
     parametry.pokolenia <- foreach(rep = replicates) %dopar% {
@@ -254,7 +258,7 @@ for(mat_sys in mating.system){
       l.alleli<-c() #mean number of allels
       fixed.loci<-c(rep(0,times=ncol(populacja))) #number of selective loci with fixed mutation (M)
       segregating.loci<-c(rep(0,times=ncol(populacja))) #number of selective loci with variation (M & m) 
-      for(i in 1:ncol(populacja)){
+      for(i in loci.sel){
         pierwsza<-substring(populacja[,i],0,1)
         druga<-substring(populacja[,i],2)
         heterozygotycznosc[i]<-sum(pierwsza!=druga)/N
@@ -264,10 +268,10 @@ for(mat_sys in mating.system){
         if(length(unique(oba))==1 & !is.element("m",oba)){fixed.loci[i]<-1}
         if(length(unique(oba))>1 & is.element("M",oba)){segregating.loci[i]<-1}
       }
-      mean.heterozygosity <- mean(heterozygotycznosc)
-      mean.l.alleli<-mean(l.alleli)
-      mean.fixed_loci<-sum(fixed.loci)
-      mean.segregating_loci<-sum(segregating.loci)
+      mean.heterozygosity <- mean(na.omit(heterozygotycznosc))
+      mean.l.alleli<-mean(na.omit(l.alleli))
+      mean.fixed_loci<-sum(na.omit(fixed.loci))
+      mean.segregating_loci<-sum(na.omit(segregating.loci))
       
       hetero.mut <- c() #mean number of heterozygous mutations per indvidual
       homo.mut <- c() #mean number of homozygous mutations per indvidual
@@ -278,18 +282,20 @@ for(mat_sys in mating.system){
       mean.hetero.mut<-mean(hetero.mut)
       mean.homo.mut<-mean(homo.mut)
       
+      mutations_per_population <- sum(populacja=="Mm"|populacja=="mM")+(sum(populacja=="MM")*2)
+      
       populacja <- cbind(populacja,c(samplex(c(0,1),size=nrow(populacja),replace = T)))
       populacja <- rbind(populacja,selection.coeff,deparse.level = 0)
       
       file.name <- paste("replicate",rep,".txt",sep="")
       write.table(populacja, file=file.name, sep="\t", quote=T)
-      wrzutka <- c(mean.viability,mean.heterozygosity,mean.l.alleli,mean.hetero.mut,mean.homo.mut,mean.fixed_loci,mean.segregating_loci)
+      wrzutka <- c(mean.viability,mean.heterozygosity,mean.l.alleli,mean.hetero.mut,mean.homo.mut,mean.fixed_loci,mean.segregating_loci,mutations_per_population)
       wrzutka
     }
     stopCluster(cl)
     
     parametry.pokolenia <- do.call(rbind,parametry.pokolenia)
-    colnames(parametry.pokolenia) <- c("mean_viability","heterozygosity","l.alleli","heterozygous_mutations","homozygous_mutations","fixed_loci","segregating_loci")
+    colnames(parametry.pokolenia) <- c("mean_viability","heterozygosity","l.alleli","heterozygous_mutations","homozygous_mutations","fixed_loci","segregating_loci","mutations_per_population")
     
 # Mean viability across replicates - for further comparisons --------------
     sr.dostosowanie.populacji <- mean(parametry.pokolenia[,"mean_viability"])
@@ -314,7 +320,7 @@ for(mat_sys in mating.system){
       library(foreach) #introduction to foreach
       library(doParallel)
       #no_cores <- detectCores() - 1
-      cl <- makeCluster(3)
+      cl <- makeCluster(21)
       registerDoParallel(cl)
       
       parametry.pokolenia <- foreach(rep = replicates) %dopar% {
@@ -477,10 +483,127 @@ for(mat_sys in mating.system){
               jaja <- jaja[(1:nrow(plemniki)),]
             }
             
-            #??czenie gamet w zygoty.
+            #laczenie gamet w zygoty.
             populacja1 <- matrix(nrow=nrow(jaja),ncol=G)
             for(y in 1:nrow(jaja)){
               nr.plemnika <- which.min(odleglosci[y,])
+              odleglosci[,nr.plemnika]<-NA
+              gameta2 <- jaja[y,]
+              gameta1 <- plemniki[nr.plemnika,]
+              for(x in 1:G){
+                populacja1[y,x] <- paste(gameta1[x],gameta2[x],sep="")
+              }
+            }
+          } else if(mat_sys == 4 | mat_sys == 5){
+            for(i in 1:length(samice)){
+              nic2<-samice[i]
+              C <- chromosomy[(2*nic2-1),]
+              D <- chromosomy[(2*nic2),]
+              for(nr in 1:l.jaj){
+                jaja[((i-1)*l.jaj)+nr,]<-crossing.over(C,D,l.chromosomes = c((G/2),(G/2)))
+                
+              }
+            }
+            if(nrow(jaja)>=1){
+              jaja<-jaja[samplex(c(1:nrow(jaja)), rep=F),]
+            }
+            
+            ranking.plemnikow <- c()
+            for(i in 1:length(samce)){
+              nic<-samce[i]
+              A <- chromosomy[(2*nic-1),]
+              B <- chromosomy[(2*nic),]
+              for(nr in 1:l.plemnikow){
+                plemniki[((i-1)*l.plemnikow)+nr,]<-crossing.over(A,B,l.chromosomes = c((G/2),(G/2)))
+                sperm_fitness <- rep(1,times=G)
+                for(locus in 1:G){
+                  if(plemniki[((i-1)*l.plemnikow)+nr,locus]=="M"){
+                    if(mat_sys == 4){
+                    sperm_fitness[locus] <- 1-selection.coeff[locus]
+                    } else if (mat_sys == 5){
+                      sperm_fitness[locus] <- 1-(selection.coeff[locus]*h)
+                    }
+                  }
+                }
+                ranking.plemnikow[((i-1)*l.plemnikow)+nr] <- prod(sperm_fitness)
+              }
+            }
+            plemniki<-cbind(plemniki,ranking.plemnikow)
+            if(nrow(plemniki)>=1){
+              plemniki <- plemniki[samplex(c(1:nrow(plemniki)), rep=F),]
+              plemniki <- plemniki[order(plemniki[,6001],decreasing = T),]
+              plemniki <- plemniki[,1:6000]
+            }
+            
+            if(nrow(jaja)>nrow(plemniki)){
+              jaja <- jaja[(1:nrow(plemniki)),]
+            }
+            populacja1 <- matrix(nrow=nrow(jaja),ncol=G)
+            for(y in 1:nrow(jaja)){
+              gameta2 <- jaja[y,]
+              gameta1 <- plemniki[y,]
+              for(x in 1:G){
+                populacja1[y,x] <- paste(gameta1[x],gameta2[x],sep="")
+              }
+            }
+          } else if(mat_sys == 6){
+            plemniki.mut<-list()
+            jaja.mut <- list()
+            
+            for(i in 1:length(samce)){
+              nic<-samce[i]
+              A <- chromosomy[(2*nic-1),]
+              B <- chromosomy[(2*nic),]
+              for(nr in 1:l.plemnikow){
+                plemniki[((i-1)*l.plemnikow)+nr,]<-crossing.over(A,B,l.chromosomes = c((G/2),(G/2)))
+                plemniki.mut[[((i-1)*l.plemnikow)+nr]] <-which(plemniki[((i-1)*l.plemnikow)+nr,]=="M")
+              }
+            }
+            
+            for(i in 1:length(samice)){
+              nic2<-samice[i]
+              C <- chromosomy[(2*nic2-1),]
+              D <- chromosomy[(2*nic2),]
+              for(nr in 1:l.jaj){
+                jaja[((i-1)*l.jaj)+nr,]<-crossing.over(C,D,l.chromosomes = c((G/2),(G/2)))
+                jaja.mut[[((i-1)*l.jaj)+nr]] <-which(jaja[((i-1)*l.jaj)+nr,]=="M")
+              }
+            }
+            
+            #Macierz odleglosci, czyli ile homozygot zmutowanych dalaby kazda z kombinacji jaja z pleminikiem.
+            odleglosci<-matrix(nrow=nrow(jaja),ncol=nrow(plemniki))
+            effect_homo <- c()
+            effect_hetero <- c()
+            for(jajo in 1:nrow(jaja)){
+              for(plemnik in 1:nrow(plemniki)){
+                place_homo <- jaja.mut[[jajo]][is.element(jaja.mut[[jajo]],plemniki.mut[[plemnik]])]
+                if(length(place_homo)>=1){
+                  effect_homo <- 1-selection.coeff[place_homo]
+                }
+                place_hetero <- c(jaja.mut[[jajo]][!is.element(jaja.mut[[jajo]],plemniki.mut[[plemnik]])],plemniki.mut[[plemnik]][!is.element(plemniki.mut[[plemnik]],jaja.mut[[jajo]])])
+                if(length(place_hetero)>=1){
+                  effect_hetero <- 1-(selection.coeff[place_hetero]*h)
+                }
+                odleglosci[jajo,plemnik]<- prod(c(effect_homo,effect_hetero))
+              }
+            }
+            
+            #mieszania
+            vec1 <- samplex(c(1:nrow(odleglosci)))
+            odleglosci <- odleglosci[vec1,]
+            jaja <- jaja[vec1,]
+            vec2 <- samplex(c(1:ncol(odleglosci)))
+            odleglosci <- odleglosci[,vec2]
+            plemniki <- plemniki[vec2,]
+            
+            if(nrow(jaja)>nrow(plemniki)){ #zabezpieczenie
+              jaja <- jaja[(1:nrow(plemniki)),]
+            }
+            
+            #laczenie gamet w zygoty.
+            populacja1 <- matrix(nrow=nrow(jaja),ncol=G)
+            for(y in 1:nrow(jaja)){
+              nr.plemnika <- which.max(odleglosci[y,])
               odleglosci[,nr.plemnika]<-NA
               gameta2 <- jaja[y,]
               gameta1 <- plemniki[nr.plemnika,]
@@ -528,10 +651,9 @@ for(mat_sys in mating.system){
           heterozygotycznosc <- c()
           l.alleli <- c()
           
-          fixed.loci<-c(rep(0,times=ncol(populacja)))
-          segregating.loci<-c(rep(0,times=ncol(populacja)))
-          if(ncol(populacja)>=1){
-            for(i in 1:ncol(populacja)){
+          fixed.loci<-c(rep(0,times=length(loci.sel)))
+          segregating.loci<-c(rep(0,times=length(loci.sel)))
+          for(i in loci.sel){
             pierwsza<-substring(populacja[,i],0,1)
             druga<-substring(populacja[,i],2)
             heterozygotycznosc[i]<-sum(pierwsza!=druga)/nrow(populacja)
@@ -540,12 +662,12 @@ for(mat_sys in mating.system){
             l.alleli[i]<-length(unique(oba))
             if(length(unique(oba))==1 & !is.element("m",oba)){fixed.loci[i]<-1}
             if(length(unique(oba))>1 & is.element("M",oba)){segregating.loci[i]<-1}
-          }}
+          }
           
-          mean.heterozygosity <- mean(heterozygotycznosc)
-          mean.l.alleli <- mean(l.alleli)
-          mean.fixed_loci <- sum(fixed.loci)
-          mean.segregating_loci <- sum(segregating.loci)
+          mean.heterozygosity <- mean(na.omit(heterozygotycznosc))
+          mean.l.alleli<-mean(na.omit(l.alleli))
+          mean.fixed_loci<-sum(na.omit(fixed.loci))
+          mean.segregating_loci<-sum(na.omit(segregating.loci))
           
           hetero.mut <- c()
           homo.mut <- c()
@@ -557,7 +679,9 @@ for(mat_sys in mating.system){
       
           mean.hetero.mut <- mean(hetero.mut)
           mean.homo.mut <- mean(homo.mut)
-          wrzutka <- c(mean.viability,mean.heterozygosity,mean.l.alleli,mean.hetero.mut,mean.homo.mut,mean.fixed_loci,mean.segregating_loci)
+          mutations_per_population <- sum(populacja=="Mm"|populacja=="mM")+(sum(populacja=="MM")*2)
+          
+          wrzutka <- c(mean.viability,mean.heterozygosity,mean.l.alleli,mean.hetero.mut,mean.homo.mut,mean.fixed_loci,mean.segregating_loci,mutations_per_population)
     
           populacja <- cbind(populacja,wektor.plci)
           populacja <- rbind(populacja,selection.coeff,deparse.level = 0)
@@ -568,7 +692,7 @@ for(mat_sys in mating.system){
       stopCluster(cl)
       
       parametry.pokolenia<-do.call(rbind,parametry.pokolenia)
-      colnames(parametry.pokolenia) <- c("mean_viability","heterozygosity","l.alleli","heterozygous_mutations","homozygous_mutations","fixed_loci","segregating_loci")
+      colnames(parametry.pokolenia) <- c("mean_viability","heterozygosity","l.alleli","heterozygous_mutations","homozygous_mutations","fixed_loci","segregating_loci","mutations_per_population")
       
       parametry.pokolenia <- na.omit(parametry.pokolenia)
       parametry[pok+1,"max_viability"] <- max(parametry.pokolenia[,"mean_viability"],na.rm = T)
