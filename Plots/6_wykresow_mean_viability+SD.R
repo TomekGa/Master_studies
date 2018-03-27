@@ -20,11 +20,11 @@ dane <- 1
 #dane.sd.dol <- p111[,dane]-(2*p111[,4])
 #dane.sd.gora <- p111[,dane]-(2*p111[,4])
 dolne.y <- 0.3
-gorne.y <- 1.5
+gorne.y <- 1.8
 legenda.y <- gorne.y*0.75
 parametr <- "mean_viability"
 
-jpeg(paste(parametr,".jpg",sep = ""),width = 2000,height = 1500)
+jpeg(paste(parametr,"+2SD.jpg",sep = ""),width = 2000,height = 1500)
 par(mfrow=c(2,3),xpd = NA)
 
 plot(x=pokolenia, y=p111[,dane], type="l", xlab=NA,cex.lab=1.5,lwd = 5,ylab = NA,ylim = c(dolne.y,gorne.y),main=paste("s",sel[1],"h",hel[1]),cex.main=3,cex.lab=2,cex.axis=3)

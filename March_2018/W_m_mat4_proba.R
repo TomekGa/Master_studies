@@ -6,16 +6,16 @@ options(show.error.locations=TRUE)
 # TO CHOOSE!!! -----------------------------------
 
 #mating.system <- c(1,2,3,4)
-mating.system <- c(3)
+mating.system <- c(1,3)
 # "1" - sperm with the lowest number of mutations
 # "2" - random mating
 # "3" - sperm with the lowest number of mutations in the same loci in comparison to female
 # "4" - sperm with different allels in set of neutral allels
-#selection.type <- c("constant","variable")
-selection.type <- c("constant")
+selection.type <- c("constant","variable")
+#selection.type <- c("constant")
 #constant or variable
-#dominance.type <- c("constant","half_variable","variable")
-dominance.type <- "constant"
+dominance.type <- c("constant","half_variable","variable")
+#dominance.type <- "constant"
 #constant,half_variable (for each s one h),variable (drawn from distribution)
 # Functions --------------------------------------------------------------
 
@@ -259,7 +259,7 @@ u<-U/(2*M) #average rate of mutation per locus
 no_cores <- l.replikatow
 initial.pop <- 10000
 #choice.coeff <- 8 #how many times probability of choice decreases with 1 additional mutation (must be larger than 1)
-choice.coeff.wektor <- c(1.1,1.15,1.2,1.3,1.35,1.4)
+choice.coeff.wektor <- c(1.1,1.3)
 neutral.allels.nr <- 7
 inbreeding.loci.nr <- 5 #how many loci is "mating.system 4" based of
 
