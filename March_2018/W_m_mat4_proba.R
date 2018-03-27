@@ -259,7 +259,7 @@ u<-U/(2*M) #average rate of mutation per locus
 no_cores <- l.replikatow
 initial.pop <- 10000
 #choice.coeff <- 8 #how many times probability of choice decreases with 1 additional mutation (must be larger than 1)
-choice.coeff.wektor <- seq(1.05,2,by=0.2)
+choice.coeff.wektor <- c(1.1,1.15,1.2,1.3,1.35,1.4)
 neutral.allels.nr <- 7
 inbreeding.loci.nr <- 5 #how many loci is "mating.system 4" based of
 
