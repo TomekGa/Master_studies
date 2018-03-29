@@ -6,16 +6,16 @@ options(show.error.locations=TRUE)
 # TO CHOOSE!!! -----------------------------------
 
 #mating.system <- c(1,2,3,4)
-mating.system <- c(1,2,3)
+mating.system <- c(4)
 # "1" - sperm with the lowest number of mutations
 # "2" - random mating
 # "3" - sperm with the lowest number of mutations in the same loci in comparison to female
 # "4" - sperm with different allels in set of neutral allels
 #selection.type <- c("constant","variable")
-selection.type <- c("variable")
+selection.type <- c("constant")
 #constant or variable
-dominance.type <- c("constant","half_variable","variable")
-#dominance.type <- "constant"
+#dominance.type <- c("constant","half_variable","variable")
+dominance.type <- "constant"
 #constant,half_variable (for each s one h),variable (drawn from distribution)
 # Functions --------------------------------------------------------------
 
@@ -249,19 +249,18 @@ L<-2 #average number of chiasms on each chromosome
 G<-6000 #overall size of haploid genome (in loci, 200 neutral loci included)
 #Ul<-0.03 #lethal mutations rate (from Wang's article)
 U<-0.5 #deleterious mutations rate (Simmons, 1977)
-l.pokolen<-50
-l.replikatow <- 21
+l.pokolen<-2
+l.replikatow <- 3
 l.plemnikow<-100
 l.jaj<-10
 s<-0.05 #mean selection coefficient (Halligan, Keightley, 2009)
 h<-0.36 #mean dominance coefficient (Garcia-Dorado,Caballero, 2001)
 u<-U/(2*M) #average rate of mutation per locus
-no_cores <- 21
+no_cores <- 3
 initial.pop <- 10000
 choice.coeff <- 2 #how many times probability of choice decreases with 1 additional mutation (must be larger than 1)
-neutral.allels.nr <- 7
-inbreeding.loci.nr <- 5 #how many loci is "mating.system 4" based of
-mat5.treshold <- 0.3 
+neutral.allels.nr <- 20
+inbreeding.loci.nr <- 20 #how many loci is "mating.system 4" based of
 
 # Estimations matrixes formation --------------------------------------------
 #zapętlenia
@@ -283,7 +282,8 @@ for(mat_sys in mating.system){
         loci.neutralne<-c(1:200)*30
         wszystkie.loci<-c(1:G)
         loci.sel<-wszystkie.loci[!is.element(wszystkie.loci, loci.neutralne)]
-        allele.neutralne<-LETTERS[1:neutral.allels.nr]
+        LETTERSplus <- LETTERS[-which(LETTERS=="M" | LETTERS == "N")]
+        allele.neutralne<-LETTERSplus[1:neutral.allels.nr]
         mat4.loci <- sort(loci.neutralne[samplex(c(1:length(loci.neutralne)),size = inbreeding.loci.nr,replace = F)])
         
         if(s.type == "constant"){
@@ -303,7 +303,6 @@ for(mat_sys in mating.system){
         } else if(h.type == "variable"){
           dominance.coeff <- rozklad.h(sztywne = F,srednie.h = h)
         }
-        mat5.loci <- which(selection.coeff>mat5.treshold)
         
         populacja<-matrix(nrow=initial.pop, ncol=G+1)
         for(locus in 1:G){
