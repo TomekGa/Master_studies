@@ -6,7 +6,7 @@ options(show.error.locations=TRUE)
 # TO CHOOSE!!! -----------------------------------
 
 #mating.system <- c(1,2,3,4)
-mating.system <- c(4)
+mating.system <- c(5)
 # "1" - sperm with the lowest number of mutations
 # "2" - random mating
 # "3" - sperm with the lowest number of mutations in the same loci in comparison to female
@@ -249,18 +249,18 @@ L<-2 #average number of chiasms on each chromosome
 G<-6000 #overall size of haploid genome (in loci, 200 neutral loci included)
 #Ul<-0.03 #lethal mutations rate (from Wang's article)
 U<-0.5 #deleterious mutations rate (Simmons, 1977)
-l.pokolen<-2
-l.replikatow <- 3
+l.pokolen<-50
+l.replikatow <- 21
 l.plemnikow<-100
 l.jaj<-10
 s<-0.05 #mean selection coefficient (Halligan, Keightley, 2009)
-h<-0.36 #mean dominance coefficient (Garcia-Dorado,Caballero, 2001)
+h<-0.35 #mean dominance coefficient (Garcia-Dorado,Caballero, 2001)
 u<-U/(2*M) #average rate of mutation per locus
-no_cores <- 3
+no_cores <- 21
 initial.pop <- 10000
 choice.coeff <- 2 #how many times probability of choice decreases with 1 additional mutation (must be larger than 1)
-neutral.allels.nr <- 20
-inbreeding.loci.nr <- 20 #how many loci is "mating.system 4" based of
+neutral.allels.nr <- 7
+inbreeding.loci.nr <- 7 #how many loci is "mating.system 4" based of
 
 # Estimations matrixes formation --------------------------------------------
 #zapętlenia
@@ -745,7 +745,78 @@ for(mat_sys in mating.system){
                     populacja1[y,x] <- paste(gameta1[x],gameta2[x],sep="")
                   }
                 }
-              } 
+              } else if(mat_sys == 5){
+                plemniki.neutral<-list()
+                jaja.neutral <- list()
+                
+                for(i in 1:length(samce)){
+                  nic<-samce[i]
+                  A <- chromosomy[(2*nic-1),]
+                  B <- chromosomy[(2*nic),]
+                  for(nr in 1:l.plemnikow){
+                    plemniki[((i-1)*l.plemnikow)+nr,]<-crossing.over(A,B,l.chromosomes = c((G/2),(G/2)))
+                    plemniki.neutral[[((i-1)*l.plemnikow)+nr]] <- plemniki[((i-1)*l.plemnikow)+nr,mat4.loci]
+                  }
+                }
+                
+                for(i in 1:length(samice)){
+                  nic2<-samice[i]
+                  C <- chromosomy[(2*nic2-1),]
+                  D <- chromosomy[(2*nic2),]
+                  for(nr in 1:l.jaj){
+                    jaja[((i-1)*l.jaj)+nr,]<-crossing.over(C,D,l.chromosomes = c((G/2),(G/2)))
+                    jaja.neutral[[((i-1)*l.jaj)+nr]] <- jaja[((i-1)*l.jaj)+nr,mat4.loci]
+                  }
+                }
+                
+                #Macierz odleg?o?ci, czyli ile homozygot zmutowanych da?aby ka?da z kombinacji jaja z pleminikiem.
+                odleglosci<-matrix(nrow=nrow(jaja),ncol=nrow(plemniki))
+                colnames(odleglosci) <- c(1:ncol(odleglosci))
+                for(jajo in 1:nrow(jaja)){
+                  for(plemnik in 1:nrow(plemniki)){
+                    odleglosci.wektor <- as.numeric(jaja.neutral[[jajo]] == plemniki.neutral[[plemnik]])
+                    if(is.element(el=0,set=odleglosci.wektor)==T){
+                      odleglosci[jajo,plemnik] <- which.min(odleglosci.wektor) - 1
+                    } else {
+                      odleglosci[jajo,plemnik] <- inbreeding.loci.nr
+                    }
+                    if(jajo == 1){
+                      colnames(odleglosci)[plemnik] <- paste("plemnik",plemnik,sep = "")
+                    } 
+                  }
+                }
+                if(rep == 1){
+                  odleglosci.name <- paste("odleglosci",pok,".txt",sep = "")
+                  write.table(odleglosci, file=odleglosci.name,sep="\t",quote=T)
+                }
+                
+                #mieszania
+                vec1 <- samplex(c(1:nrow(odleglosci)))
+                odleglosci <- odleglosci[vec1,]
+                jaja <- jaja[vec1,]
+                # vec2 <- samplex(c(1:ncol(odleglosci)))
+                # odleglosci <- odleglosci[,vec2]
+                # plemniki <- plemniki[vec2,]
+                
+                if(nrow(jaja)>nrow(plemniki)){ #zabezpieczenie
+                  jaja <- jaja[(1:nrow(plemniki)),]
+                }
+                
+                #laczenie gamet w zygoty.
+                populacja1 <- matrix(nrow=nrow(jaja),ncol=G)
+                for(y in 1:nrow(jaja)){
+                  ranking.prob <- choice.prob(as.numeric(odleglosci[y,]),choice.coeff,ideal = T)
+                  nr.kol <- samplex(c(1:ncol(odleglosci)),size=1,prob = ranking.prob)
+                  name.kol <- colnames(odleglosci)[nr.kol]
+                  nr.plemnika <- as.numeric(substring(name.kol,8))
+                  odleglosci <- odleglosci[,colnames(odleglosci) != name.kol]
+                  gameta2 <- jaja[y,]
+                  gameta1 <- plemniki[nr.plemnika,]
+                  for(x in 1:G){
+                    populacja1[y,x] <- paste(gameta1[x],gameta2[x],sep="")
+                  }
+                }
+              }
               populacja1 <- cbind(populacja1,c(samplex(c(0,1),size=nrow(populacja1),replace = T)))
               
               # Simulation estimators ---------------------------------------------------
